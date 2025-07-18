@@ -1,4 +1,4 @@
-from transformers import AutoProcessor, AutoModelForImageTextToText
+from transformers import AutoModelForImageTextToText, AutoProcessor
 from PIL import Image
 import torch
 import requests
@@ -9,14 +9,20 @@ model_id = "google/medgemma-4b-it"
 print("Loading model")
 model = AutoModelForImageTextToText.from_pretrained(
     model_id,
-    torch_dtype=torch.float32,
-).to("cpu")
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+    cache_dir="./cache"
+)
+
+print("Model loaded")
+
+print("Loading processor")
 
 processor = AutoProcessor.from_pretrained(model_id)
 
 print("Loading image")
-# image_url = "https://img.medscapestatic.com/pi/meds/ckb/10/16810tn.jpg"
-image_url = "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png"
+image_url = "https://img.medscapestatic.com/pi/meds/ckb/10/16810tn.jpg"
+# image_url = "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png"
 image = Image.open(requests.get(image_url, headers={"User-Agent": "example"}, stream=True).raw)
 
 print("Loaded image")
@@ -38,8 +44,8 @@ messages = [
 
 inputs = processor.apply_chat_template(
     messages, add_generation_prompt=True, tokenize=True,
-    return_dict=True, return_tensors="pt"
-).to("cpu", dtype=torch.float32)
+    return_dict=True, return_tensors="pt").to(model.device, dtype=torch.bfloat16)
+
 
 input_len = inputs["input_ids"].shape[-1]
 
@@ -51,4 +57,4 @@ with torch.inference_mode():
 decoded = processor.decode(generation, skip_special_tokens=True)
 print(decoded)
 
-print(f"Model loaded and cached successfully.\nOutput: {output}")
+print(f"Model loaded and cached successfully.")
